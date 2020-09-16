@@ -11,27 +11,62 @@ class CPU:
         self.ram = [0] * 256
         self.pc =  0
 
+    def load_file(self, filename):
+        try:
+            address = 0
+            memory = [0] * 256
 
-    def load(self):
+
+            with open(filename) as f:
+                for line in f:
+                    t = line.split('#')
+                    n = t[0].strip()
+
+                    if n == '':
+                        continue
+
+                    try:
+                        n = int(n, 2)
+                    except ValueError:
+                        print(f"Invalid number '{n}'")
+                        sys.exit(1)
+
+                    memory[address] = n
+                    address += 1
+
+            return memory
+
+        except FileNotFoundError:
+            print(f"File not found: {filename}")
+            return None
+        
+
+
+
+
+    def load(self, filename):
         """Load a program into memory."""
 
-        address = 0
+        self.ram = self.load_file(filename)
+        # print(self.ram)
 
-        # For now, we've just hardcoded a program:
+        # address = 0
 
-        program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
-            0b00000000,
-            0b00000001, # HLT
-        ]
+        # # For now, we've just hardcoded a program:
 
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+        # program = [
+        #     # From print8.ls8
+        #     0b10000010, # LDI R0,8
+        #     0b00000000,
+        #     0b00001000,
+        #     0b01000111, # PRN R0
+        #     0b00000000,
+        #     0b00000001, # HLT
+        # ]
+
+        # for instruction in program:
+        #     self.ram[address] = instruction
+        #     address += 1
 
 
     def ram_read(self, num):
@@ -48,6 +83,10 @@ class CPU:
         #elif op == "SUB": etc
         else:
             raise Exception("Unsupported ALU operation")
+
+    def increment_count(self, op):
+        count = ((op & 11000000) >> 6) + 1
+        return count
 
     def trace(self):
         """
@@ -77,18 +116,36 @@ class CPU:
 
             ir = self.pc 
             op = self.ram_read(ir)
+            count = self.increment_count(op)
+            # print("LR", ir, "OP", bin(op), "count", count)
+            # print("reg1", self.reg[0], "reg2", self.reg[1])
+
 
             if op == 0b10000010: # LDI 
                 reg =  self.ram_read(ir + 1) # register number
                 value =  self.ram_read(ir + 2) # value 
                 self.reg[reg] = value
-                self.pc += 3
+                self.pc += count
 
             elif op == 0b01000111: # PRN 
                 reg_num = self.ram_read(ir + 1)
-                print(bin(self.reg[reg_num]))
-                self.pc += 2
+                print("binary:", bin(self.reg[reg_num]))
+                print("decimal:", self.reg[reg_num])
+                self.pc += count
+
+            elif op == 0b10100010: # MUL Get values from 2 registers  and multiply and store the results in the 1st register
+                reg1 =  self.ram_read(ir + 1) # register number 1
+                reg2 =  self.ram_read(ir + 2) # register numnber 2
+                # print("reg1 index", reg1, "reg2 index", reg2)
+                result = self.reg[reg1] * self.reg[reg2]
+                # print("Result", result)
+                self.reg[reg1] = result
+                self.pc += count
 
             elif op == 0b00000001: # HLT 
                 running = False
+            else:
+                self.pc += count
+                continue
+
 
