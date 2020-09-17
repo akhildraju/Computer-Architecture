@@ -5,11 +5,21 @@ import sys
 class CPU:
     """Main CPU class."""
 
+
     def __init__(self):
         """Construct a new CPU."""
         self.reg = [0] * 8  # R0-R7
         self.ram = [0] * 256
         self.pc =  0
+        self.methods = {}
+        self.methods[0b10000010] = self.ldi
+        self.methods[0b01000111] = self.prn
+        self.methods[0b10100010] = self.mul
+        self.methods[0b01000101] = self.push
+        self.methods[0b01000110] = self.pop
+        self.SP = 7
+
+
 
     def load_file(self, filename):
         try:
@@ -88,6 +98,59 @@ class CPU:
         count = ((op & 11000000) >> 6) + 1
         return count
 
+    def ldi(self):        
+        register_num =  self.ram_read(self.pc + 1) # register number
+        value =  self.ram_read(self.pc + 2) # value 
+        self.reg[register_num] = value
+
+    def prn(self):
+        reg_num = self.ram_read(self.pc + 1)
+        # print("binary:", bin(self.reg[reg_num]))
+        print("decimal:", self.reg[reg_num])
+
+    def mul(self):
+        reg1 =  self.ram_read(self.pc + 1) # register number 1
+        reg2 =  self.ram_read(self.pc + 2) # register numnber 2
+        result = self.reg[reg1] * self.reg[reg2]
+        self.reg[reg1] = result
+
+    def push(self):
+
+        self.reg[self.SP] -= 1
+
+        # Get the reg num to push
+        reg_num = self.ram_read(self.pc + 1)
+
+        # Get the value to push
+        value = self.reg[reg_num]
+
+        # Copy the value to the SP address
+        top_of_stack_addr = self.reg[self.SP]
+        self.ram_write(top_of_stack_addr, value)
+
+    
+    def pop(self):
+
+		# Get reg to pop into
+        reg_num = self.ram_read(self.pc + 1)
+
+        # Get the top of stack addr
+        top_of_stack_addr = self.reg[self.SP]
+
+        # Get the value at the top of the stack
+        value = self.ram_read(top_of_stack_addr)
+
+        # Store the value in the register
+        self.reg[reg_num] = value
+
+        # Increment the SP
+        self.reg[self.SP] += 1
+
+
+
+
+
+
     def trace(self):
         """
         Handy function to print out the CPU state. You might want to call this
@@ -117,35 +180,13 @@ class CPU:
             ir = self.pc 
             op = self.ram_read(ir)
             count = self.increment_count(op)
-            # print("LR", ir, "OP", bin(op), "count", count)
-            # print("reg1", self.reg[0], "reg2", self.reg[1])
 
-
-            if op == 0b10000010: # LDI 
-                reg =  self.ram_read(ir + 1) # register number
-                value =  self.ram_read(ir + 2) # value 
-                self.reg[reg] = value
-                self.pc += count
-
-            elif op == 0b01000111: # PRN 
-                reg_num = self.ram_read(ir + 1)
-                print("binary:", bin(self.reg[reg_num]))
-                print("decimal:", self.reg[reg_num])
-                self.pc += count
-
-            elif op == 0b10100010: # MUL Get values from 2 registers  and multiply and store the results in the 1st register
-                reg1 =  self.ram_read(ir + 1) # register number 1
-                reg2 =  self.ram_read(ir + 2) # register numnber 2
-                # print("reg1 index", reg1, "reg2 index", reg2)
-                result = self.reg[reg1] * self.reg[reg2]
-                # print("Result", result)
-                self.reg[reg1] = result
-                self.pc += count
-
-            elif op == 0b00000001: # HLT 
+            if op == 0b00000001: # HLT 
                 running = False
             else:
-                self.pc += count
-                continue
+                self.methods[op]()
+            
+            self.pc += count
+            # print("Regs", self.reg)
 
 
