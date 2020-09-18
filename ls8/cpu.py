@@ -2,6 +2,17 @@
 
 import sys
 
+LDI = 0b10000010 
+PRN = 0b01000111 
+MUL = 0b10100010 
+PUSH = 0b01000101 
+POP = 0b01000110 
+HALT = 0b00000001 
+CALL = 0b01010000 
+RET = 0b00010001 
+ADD = 0b10100000 
+
+
 class CPU:
     """Main CPU class."""
 
@@ -12,11 +23,14 @@ class CPU:
         self.ram = [0] * 256
         self.pc =  0
         self.methods = {}
-        self.methods[0b10000010] = self.ldi
-        self.methods[0b01000111] = self.prn
-        self.methods[0b10100010] = self.mul
-        self.methods[0b01000101] = self.push
-        self.methods[0b01000110] = self.pop
+        self.methods[LDI] = self.ldi
+        self.methods[PRN] = self.prn
+        self.methods[MUL] = self.mul
+        self.methods[PUSH] = self.push
+        self.methods[POP] = self.pop
+        self.methods[CALL] = self.call
+        self.methods[RET] = self.ret
+        self.methods[ADD] = self.add
         self.SP = 7
 
 
@@ -50,8 +64,6 @@ class CPU:
             print(f"File not found: {filename}")
             return None
         
-
-
 
 
     def load(self, filename):
@@ -117,13 +129,10 @@ class CPU:
     def push(self):
 
         self.reg[self.SP] -= 1
-
         # Get the reg num to push
         reg_num = self.ram_read(self.pc + 1)
-
         # Get the value to push
         value = self.reg[reg_num]
-
         # Copy the value to the SP address
         top_of_stack_addr = self.reg[self.SP]
         self.ram_write(top_of_stack_addr, value)
@@ -133,10 +142,8 @@ class CPU:
 
 		# Get reg to pop into
         reg_num = self.ram_read(self.pc + 1)
-
         # Get the top of stack addr
         top_of_stack_addr = self.reg[self.SP]
-
         # Get the value at the top of the stack
         value = self.ram_read(top_of_stack_addr)
 
@@ -147,8 +154,49 @@ class CPU:
         self.reg[self.SP] += 1
 
 
+    def push_value(self, value):
+        # Decrement SP
+        self.reg[self.SP] -= 1
+
+        # Copy the value to the SP address
+        top_of_stack_addr = self.reg[self.SP]
+        self.ram[top_of_stack_addr] = value
+
+    def pop_value(self):
+        # Get the top of stack addr
+        top_of_stack_addr = self.reg[self.SP]
+
+        # Get the value at the top of the stack
+        value = self.ram_read(top_of_stack_addr)
+
+        # Increment the SP
+        self.reg[self.SP] += 1
+
+        return value
+
+    def call(self):
+        # Compute the return addr
+        return_addr = self.pc + 2
+
+        # Push return addr on stack
+        self.push_value(return_addr)
+
+        # Get the value from the operand reg
+        reg_num = self.ram_read(self.pc + 1)
+        value = self.reg[reg_num]
+
+        # Set the pc to that value
+        self.pc = value
 
 
+    def ret(self):
+        return_addr = self.ram[self.SP]
+        self.SP += 1
+
+        self.pc = return_addr
+
+    def add(self):
+        self.reg[self.ram[self.pc + 1]] += self.reg[self.ram[self.pc + 2]]
 
 
     def trace(self):
@@ -177,16 +225,21 @@ class CPU:
 
         while running:
 
-            ir = self.pc 
-            op = self.ram_read(ir)
-            count = self.increment_count(op)
+            op = self.ram_read(self.pc)
+            inst_sets_pc = (op & 16) 
+
+            # print("op", bin(op))
 
             if op == 0b00000001: # HLT 
+                # break
                 running = False
             else:
                 self.methods[op]()
-            
-            self.pc += count
+
+            count = self.increment_count(op)   
+            if inst_sets_pc !=  0b00010000: 
+                self.pc += count
+
             # print("Regs", self.reg)
 
 
