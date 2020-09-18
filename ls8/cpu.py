@@ -175,28 +175,26 @@ class CPU:
         return value
 
     def call(self):
-        # Compute the return addr
-        return_addr = self.pc + 2
 
-        # Push return addr on stack
-        self.push_value(return_addr)
-
-        # Get the value from the operand reg
+        next_address = self.pc + 2
+        self.SP -= 1
+        self.ram[self.SP] = next_address
+        # set pc
         reg_num = self.ram_read(self.pc + 1)
-        value = self.reg[reg_num]
-
-        # Set the pc to that value
-        self.pc = value
-
+        address = self.reg[reg_num]
+        self.pc = address
 
     def ret(self):
-        return_addr = self.ram[self.SP]
+        next_address = self.ram[self.SP]
         self.SP += 1
-
-        self.pc = return_addr
+        self.pc = next_address
 
     def add(self):
-        self.reg[self.ram[self.pc + 1]] += self.reg[self.ram[self.pc + 2]]
+
+        reg1 =  self.ram_read(self.pc + 1) # register number 1
+        reg2 =  self.ram_read(self.pc + 2) # register numnber 2
+        result = self.reg[reg1] + self.reg[reg2]
+        self.reg[reg1] = result
 
 
     def trace(self):
@@ -237,9 +235,13 @@ class CPU:
                 self.methods[op]()
 
             count = self.increment_count(op)   
-            if inst_sets_pc !=  0b00010000: 
+            if op == CALL or op == RET:
+                pass
+            else:
                 self.pc += count
 
+            # if inst_sets_pc !=  0b00010000: 
+            # print("PC", self.pc)
             # print("Regs", self.reg)
 
 
